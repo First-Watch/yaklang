@@ -1,50 +1,55 @@
 parser grammar SuricataRuleParser;
 
-options {
-    tokenVocab=SuricataRuleLexer;
+@header {
+#pragma warning disable 3021
+#pragma warning disable 0108
 }
 
+options { tokenVocab=SuricataRuleLexer; }
+
 rules : rule+ EOF;
-rule : action protocol src_address src_port '->' dest_address dest_port params;
+rule : action protocol src_address src_port direction dest_address dest_port params;
 
 action : ID;
 protocol : ID;
+direction : (DirectionForward | DirectionBoth);
 
 /* parse address */
 src_address: address;
 dest_address : address;
 address
-    : 'any'
-    | '!' address
+    : Any
+    | Negative address
     | environment_var
     | ipv4
     | ipv6
-    | '[' address (',' address)* ']'
+    | LBracket address (Comma address)* RBracket
     ;
-ipv4: ipv4block '.' ipv4block '.' ipv4block '.' ipv4block ('/' ipv4mask ) ? ;
+environment_var: Dollar ID;
+
+/* ipv4 */
+ipv4: ipv4block Dot ipv4block Dot ipv4block Dot ipv4block ('/' ipv4mask )? ;
 ipv4block: INT;
 ipv4mask: INT;
-environment_var: '$' ID;
 
 /* ipv6 */
-ipv6 : hex_part (':' hex_part)* ('::' (hex_part ':')* hex_part)?;
-hex_part : h16 | h16? ':' ':' h16 | ':' ':' h16;
+ipv6 : hex_part (Colon hex_part)* (DoubleColon (hex_part Colon)* hex_part)?;
+hex_part : h16 | h16? DoubleColon h16 | DoubleColon h16;
 h16 : HEX;
 
 /* ports */
 src_port : port;
 dest_port : port;
 port
-    : 'any'
-    |  INT
-    | INT ':' INT ?
-    | ':' INT
-    | '!' port
-    | '[' port (',' port)* ']'
+    : Any
+    | INT
+    | INT Colon INT ?
+    | Colon INT
+    | Negative port
+    | LBracket port (Comma port)* RBracket
     | environment_var
     ;
 
 /* rules configuration */
-params : ParamStart param (';' param) * ';'? ParamEnd;
-param: ParamValue (string)?;
-string: ParamQuotedString;
+params : ParamStart param (ParamSep param)* ParamSep? ParamEnd;
+param: (ParamKey ParamKeySep ParamValue) | (ParamKey) ;

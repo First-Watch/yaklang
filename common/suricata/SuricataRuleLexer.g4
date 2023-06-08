@@ -1,12 +1,17 @@
 lexer grammar SuricataRuleLexer;
 
+@header {
+#pragma warning disable 3021
+}
+
 // Keywords
 Any: 'any';
 
 // Symbols
 Negative: '!';
 Dollar: '$';
-Arrow: '->';
+DirectionForward: '->';
+DirectionBoth: '<>';
 Mul: '*';
 Div: '/';
 Mod: '%';
@@ -18,6 +23,7 @@ Lt: '<';
 Gt: '>';
 LtEq: '<=';
 GtEq: '>=';
+SemiColon: ';';
 Colon: ':';
 DoubleColon: '::';
 LBracket: '[';
@@ -37,7 +43,7 @@ ID
     ;
 
 NORMALSTRING
-    : '"' ( EscapeSequence | ~('\\'|'"') )* '"'
+    : '"' ( EscapeSequence | ~('"') )* '"'
     ;
 
 INT
@@ -46,12 +52,6 @@ INT
 
 HEX
     : HexDigit+
-    ;
-
-FLOAT
-    : Digit+ '.' Digit* ExponentPart?
-    | '.' Digit+ ExponentPart?
-    | Digit+ ExponentPart
     ;
 
 fragment
@@ -72,54 +72,48 @@ EscapeSequence
     | HexEscape
     | UtfEscape
     ;
-
 fragment
 DecimalEscape
     : '\\' Digit
     | '\\' Digit Digit
     | '\\' [0-2] Digit Digit
     ;
-
 fragment
 HexEscape
     : '\\' 'x' HexDigit HexDigit
     ;
-
 fragment
 UtfEscape
     : '\\' 'u{' HexDigit+ '}'
     ;
-
 fragment
 Digit
     : [0-9]
     ;
-
 fragment
 HexDigit
     : [0-9a-fA-F]
     ;
-
 fragment
 SingleLineInputCharacter
     : ~[\r\n\u0085\u2028\u2029]
     ;
-
 WS
     : [ \t\u000C\r\n]+ -> skip
     ;
-
 NonSemiColon: [^;]+;
-
 SHEBANG
     : '#' '!' SingleLineInputCharacter* -> channel(HIDDEN)
     ;
-
+    
+mode PARAM_VALUE;
+    ParamNot: '!';
+    ParamValue: ParamNot? ParamKey -> popMode;
+    
 mode PARAM_MODE;
     fragment Quote: '"';
-    fragment CharInQuotedString: ~["] ;
-    ParamQuotedString: Quote CharInQuotedString* Quote;
+    ParamKey: NORMALSTRING | (FreeValueAnyCharNoColon+) ;
+    ParamKeySep: (':') -> pushMode(PARAM_VALUE);
     ParamSep: ';';
-    ParamValue: FreeValueAnyChar+;
     ParamEnd: ')' -> popMode;
-    fragment FreeValueAnyChar: ~(')' | '"' | ';');
+    fragment FreeValueAnyCharNoColon: ~(')' | '"' | ';' | ':');
